@@ -16,7 +16,7 @@ conan_cmake_run(CONANFILE conanfile.py
                 BUILD missing)
 
 set(BOTAN_STREAM_SOURCES "botan_stream_helpers.hpp")
-add_executable(botan_beast "spike_botan.cpp" ${BOTAN_STREAM_SOURCES})
+add_executable(spike_cpprest "spike_cpprest.cpp" ${BOTAN_STREAM_SOURCES})
 
-target_link_libraries(botan_beast
-    CONAN_PKG::boost CONAN_PKG::botan)
+target_link_libraries(spike_cpprest
+    CONAN_PKG::boost CONAN_PKG::botan CONAN_PKG::cpprestsdk)

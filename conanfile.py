@@ -10,6 +10,7 @@ class SpikeBeast(ConanFile):
     def requirements(self):
         self.requires("botan/2.12.0@nexenio/testing")
         self.requires("boost/1.69.0@conan/stable")
+        self.requires("cpprestsdk/2.10.14.16@nexenio/stable")
 
     def _botan_modules12(self):
         modules = [
@@ -54,6 +55,8 @@ class SpikeBeast(ConanFile):
         return ','.join(modules)
 
     def configure(self):
+        self.options["cpprestsdk"].add("exclude_websockets=True")
+
         self.options["botan"].add("shared=False")
         self.options["botan"].add("boost=True")
         self.options["botan"].add("enable_modules=%s" % self._botan_modules12())
