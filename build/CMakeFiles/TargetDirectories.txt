@@ -1,3 +1,0 @@
-/Users/timoesterreich/projects/spike-beast/build/CMakeFiles/rebuild_cache.dir
-/Users/timoesterreich/projects/spike-beast/build/CMakeFiles/edit_cache.dir
-/Users/timoesterreich/projects/spike-beast/build/CMakeFiles/botan_beast.dir

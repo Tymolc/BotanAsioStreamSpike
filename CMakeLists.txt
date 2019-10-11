@@ -15,10 +15,7 @@ conan_cmake_run(CONANFILE conanfile.py
                 BASIC_SETUP KEEP_RPATHS CMAKE_TARGETS
                 BUILD missing)
 
-set(BOTAN_STREAM_SOURCES "botan_stream_helpers.hpp"
-                         "pkcs11/debug_prints.h"
-                         "pkcs11/enum_to_string.h"
-                         "root_certs.hpp")
+set(BOTAN_STREAM_SOURCES "botan_stream_helpers.hpp")
 add_executable(botan_beast "spike_botan.cpp" ${BOTAN_STREAM_SOURCES})
 
 target_link_libraries(botan_beast
