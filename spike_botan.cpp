@@ -46,10 +46,10 @@ int main(int argc, char **argv)
                       << "    http-client-sync-ssl www.example.com 443 /\n";
             return EXIT_FAILURE;
         }
-        auto const host   = argv[1];
-        auto const port   = argv[2];
-        auto const target = argv[3];
-        const int version = 11;
+        auto const host    = argv[1];
+        auto const port    = argv[2];
+        auto const target  = argv[3];
+        const int  version = 11;
 
         boost::asio::io_context ioc;
         tcp::resolver           resolver{ioc};
@@ -63,9 +63,10 @@ int main(int argc, char **argv)
 
         CredentialsManager credentialsManager;
 
-        auto ctx = Botan::TLS::Context(credentialsManager, rng, sessionManager, policy, serverInformation);
+        auto ctx = Botan::TLS::Context(credentialsManager, rng, sessionManager,
+                                       policy, serverInformation);
 
-        Botan::TLS::Stream<tcp::socket&> stream(socket, ctx);
+        Botan::TLS::Stream<tcp::socket &> stream(socket, ctx);
 
         // Look up the domain name
         auto const results = resolver.resolve(host, port);
@@ -73,48 +74,51 @@ int main(int argc, char **argv)
         boost::asio::connect(stream.next_layer(), results);
 
         std::cout << "shaking hands" << std::endl;
-        stream.handshake(Botan::TLS::CLIENT);
+        stream.async_handshake(
+            Botan::TLS::CLIENT, [&](boost::system::error_code ec) {
+                std::cout << "now we're talking" << std::endl;
+                // Set up an HTTP GET request message
+                http::request<http::string_body> req{http::verb::get, target,
+                                                     version};
+                req.set(http::field::host, host);
+                req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
 
-        std::cout << "now we're talking" << std::endl;
-        // Set up an HTTP GET request message
-        http::request<http::string_body> req{http::verb::get, target, version};
-        req.set(http::field::host, host);
-        req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
+                http::write(stream, req);
 
-        http::write(stream, req);
+                // // This buffer is used for reading and must be persisted
+                boost::beast::flat_buffer buffer;
 
-        // // This buffer is used for reading and must be persisted
-        boost::beast::flat_buffer buffer;
+                // // Declare a container to hold the response
+                http::response<http::string_body> res;
 
-        // // Declare a container to hold the response
-        http::response<http::string_body> res;
+                // Receive the HTTP response
+                std::size_t parsed_bytes = http::read(stream, buffer, res, ec);
 
-        // Receive the HTTP response
-        boost::system::error_code ec;
-        std::size_t parsed_bytes = http::read(stream, buffer, res, ec);
+                std::cout << "Parse: " << parsed_bytes << " bytes" << std::endl;
 
-        std::cout << "Parse: " << parsed_bytes << " bytes" << std::endl;
+                if (ec == boost::asio::error::eof) {
+                    // Rationale:
+                    // http:
+                    // //stackoverflow.com/questions/25587403/boost-asio-ssl-async-shutdown-always-finishes-with-an-error
+                    ec.assign(0, ec.category());
+                }
 
-        if (ec == boost::asio::error::eof) {
-            // Rationale:
-            // http:
-            // //stackoverflow.com/questions/25587403/boost-asio-ssl-async-shutdown-always-finishes-with-an-error
-            ec.assign(0, ec.category());
-        }
+                std::cout << res << std::endl;
 
-        std::cout << res << std::endl;
+                // Gracefully close the stream
+                ec = boost::system::error_code();
+                stream.shutdown(ec);
+                if (ec == boost::asio::error::eof) {
+                    // Rationale:
+                    // http://stackoverflow.com/questions/25587403/boost-asio-ssl-async-shutdown-always-finishes-with-an-error
+                    ec.assign(0, ec.category());
+                }
+                if (ec) {
+                    throw boost::system::system_error{ec};
+                }
+            });
 
-        // Gracefully close the stream
-        ec = boost::system::error_code();
-        stream.shutdown(ec);
-        if (ec == boost::asio::error::eof) {
-            // Rationale:
-            // http://stackoverflow.com/questions/25587403/boost-asio-ssl-async-shutdown-always-finishes-with-an-error
-            ec.assign(0, ec.category());
-        }
-        if (ec) {
-            throw boost::system::system_error{ec};
-        }
+        ioc.run();
 
     } catch (std::exception const &e) {
         std::cerr << "Error: " << e.what() << std::endl;

@@ -16,9 +16,9 @@ using tcp = boost::asio::ip::tcp;
 class async_socket_handler
 {
   public:
-    async_socket_handler(boost::asio::io_context &ctx)
+    async_socket_handler(tcp::socket socket, boost::asio::io_context &ctx)
         : _stopped(false)
-        , _socket(ctx)
+        , _stream(socket, ctx)
     {
     }
 
@@ -34,12 +34,12 @@ class async_socket_handler
     {
         _stopped = true;
         boost::system::error_code ignored_ec;
-        _socket.close(ignored_ec);
+        _stream.close(ignored_ec);
     }
 
   protected:
     tcp::resolver::results_type _endpoints;
-    tcp::socket                 _socket;
+    Botan::TLS::Stream          _stream;
     bool                        _stopped;
     char                        _input_buffer[4096];
 
@@ -52,7 +52,7 @@ class async_socket_handler
             std::cout << "Trying " << endpoint_iter->endpoint() << "...\n";
 
             // Start the asynchronous connect operation.
-            _socket.async_connect(
+            _stream.async_connect(
                 endpoint_iter->endpoint(),
                 boost::bind(&async_socket_handler::handle_connect, this, _1,
                             endpoint_iter));
@@ -72,7 +72,7 @@ class async_socket_handler
         // The async_connect() function automatically opens the socket at
         // the start of the asynchronous operation. If the socket is closed
         // at this time then the timeout handler must have run first.
-        if (!_socket.is_open()) {
+        if (!_stream.is_open()) {
             std::cout << "Connect timed out\n";
 
             // Try the next available endpoint.
@@ -86,7 +86,7 @@ class async_socket_handler
 
             // We need to close the socket used in the previous connection
             // attempt before starting a new one.
-            _socket.close();
+            _stream.close();
 
             // Try the next available endpoint.
             start_connect(++endpoint_iter);
@@ -107,7 +107,7 @@ class async_socket_handler
     void start_read()
     {
         // Start an asynchronous operation to read a newline-delimited message.
-        _socket.async_read_some(
+        _stream.async_read_some(
             boost::asio::buffer(_input_buffer, 4 * 1024),
             boost::bind(&async_socket_handler::handle_read, this, _1, _2));
     }
@@ -138,7 +138,7 @@ class async_socket_handler
 
         // Start an asynchronous operation to send a heartbeat message.
         boost::asio::async_write(
-            _socket, boost::asio::buffer(msg),
+            _stream, boost::asio::buffer(msg),
             boost::bind(&async_socket_handler::handle_write, this, _1));
     }
 
